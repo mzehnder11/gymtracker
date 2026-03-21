@@ -2,7 +2,7 @@
 
 Eine leistungsstarke, native iOS-App zum Verfolgen von Fitnesstraining, Kraftwerten und dem **Progressive Overload**. Die App ermöglicht es Nutzern, Übungen zu erstellen, Trainingseinheiten (Sessions) zu protokollieren und langfristige Trainingspläne zu verwalten.
 
-## 🚀 Features
+## Features
 
 * **Übungsverwaltung**: Erstellen und Organisieren von individuellen Übungen.
 * **Progressive Overload Analyse**:
@@ -21,14 +21,14 @@ Eine leistungsstarke, native iOS-App zum Verfolgen von Fitnesstraining, Kraftwer
 * **Trainingspläne**: Erstellung von Vorlagen (z. B. Push/Pull/Legs), um Sessions mit einem Klick zu starten.
 * **Persistence**: Lokale Speicherung aller Daten via `UserDefaults` (JSON Encoding).
 
-## 🛠 Technologie-Stack
+## Technologie-Stack
 
 * **Framework**: SwiftUI
 * **Datenvisualisierung**: Swift Charts
 * **Architektur**: MVVM (Model-View-ViewModel) mit `ObservableObject`
 * **Speicherung**: Codable & UserDefaults
 
-## 📂 Projektstruktur
+## Projektstruktur
 
 | Datei | Beschreibung |
 | --- | --- |
@@ -38,7 +38,7 @@ Eine leistungsstarke, native iOS-App zum Verfolgen von Fitnesstraining, Kraftwer
 | **Store** | `GymStore` – Zentrale Logik für CRUD-Operationen und Persistenz. |
 | **Views** | Modulare Subviews für Listen, Details, Diagramme und Formulare. |
 
-## 📊 Kernmetriken & Logik
+## Kernmetriken & Logik
 
 Die App berechnet den Fortschritt dynamisch:
 
@@ -46,14 +46,14 @@ Die App berechnet den Fortschritt dynamisch:
 * **Volumen**: Berechnet als .
 * **Durchschnittliche Intensität**: Arithmetisches Mittel des Volumens über alle Sätze einer Übung.
 
-## 📱 Screenshots (Funktionsübersicht)
+## Screenshots (Funktionsübersicht)
 
 1. **Übungen**: Liste aller Übungen mit 1RM-Anzeige und Trend-Pfeilen.
 2. **Statistiken**: Detaillierte Detailansicht einer Übung mit drei verschiedenen Chart-Typen.
 3. **Sessions**: Übersicht über absolvierte Trainings mit automatischer Volumensummierung.
 4. **Pläne**: Vorlagenverwaltung zum schnellen Starten von Workouts.
 
-## 🛠 Installation & Anforderungen
+## Installation & Anforderungen
 
 1. Xcode 15.0+ oder neuer.
 2. iOS 17.0+ (aufgrund der Verwendung von Swift Charts und modernen NavigationStacks).

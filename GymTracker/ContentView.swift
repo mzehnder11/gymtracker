@@ -1,6 +1,8 @@
 import SwiftUI
+import Foundation
 import Charts
 import Combine
+import UniformTypeIdentifiers
 
 // MARK: - DATE FORMATTER
 
@@ -15,7 +17,7 @@ extension Date {
 
 // MARK: - MODELS
 
-struct Exercise: Identifiable, Codable, Hashable {
+struct Exercise: Identifiable, Codable, Hashable, Sendable {
     let id: UUID
     var name: String
     var logs: [WorkoutLog]
@@ -48,7 +50,7 @@ struct Exercise: Identifiable, Codable, Hashable {
     }
 }
 
-struct WorkoutLog: Identifiable, Codable, Hashable {
+struct WorkoutLog: Identifiable, Codable, Hashable, Sendable {
     let id: UUID
     let date: Date
     let weight: Double
@@ -65,7 +67,7 @@ struct WorkoutLog: Identifiable, Codable, Hashable {
     }
 }
 
-struct TrainingSession: Identifiable, Codable, Hashable {
+struct TrainingSession: Identifiable, Codable, Hashable, Sendable {
     let id: UUID
     var name: String
     var date: Date
@@ -83,11 +85,43 @@ struct TrainingSession: Identifiable, Codable, Hashable {
     }
 }
 
-struct TrainingPlan: Identifiable, Codable, Hashable {
+struct TrainingPlan: Identifiable, Codable, Hashable, Sendable {
     let id: UUID
     var name: String
     var exerciseIds: [UUID]
     var notes: String
+}
+
+// MARK: - BACKUP MODELS
+
+struct GymDataBackup: Codable, Sendable {
+    var exercises: [Exercise]
+    var sessions: [TrainingSession]
+    var plans: [TrainingPlan]
+    var version: String = "1.0"
+}
+
+struct GymDataDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.json] }
+    var backup: GymDataBackup
+
+    init(backup: GymDataBackup) {
+        self.backup = backup
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        guard let data = configuration.file.regularFileContents else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        self.backup = try JSONDecoder().decode(GymDataBackup.self, from: data)
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .prettyPrinted
+        let data = try encoder.encode(backup)
+        return FileWrapper(regularFileWithContents: data)
+    }
 }
 
 // MARK: - SETTINGS STORE
@@ -306,6 +340,26 @@ final class GymStore: ObservableObject {
            let decoded = try? JSONDecoder().decode([TrainingPlan].self, from: data) {
             plans = decoded
         }
+    }
+    
+    func createBackup() -> GymDataBackup {
+        return GymDataBackup(exercises: exercises, sessions: sessions, plans: plans)
+    }
+    
+    func restore(from backup: GymDataBackup) {
+        self.exercises = backup.exercises
+        self.sessions = backup.sessions
+        self.plans = backup.plans
+        save()
+    }
+    
+    func clearAll() {
+        exercises.removeAll()
+        sessions.removeAll()
+        plans.removeAll()
+        UserDefaults.standard.removeObject(forKey: exercisesKey)
+        UserDefaults.standard.removeObject(forKey: sessionsKey)
+        UserDefaults.standard.removeObject(forKey: plansKey)
     }
 }
 
@@ -1812,6 +1866,9 @@ struct SettingsView: View {
     @EnvironmentObject var settings: SettingsStore
     @State private var showResetAlert = false
     @State private var showExportSheet = false
+    @State private var showExporter = false
+    @State private var showImporter = false
+    @State private var exportDocument: GymDataDocument?
     
     var body: some View {
         NavigationStack {
@@ -1889,11 +1946,30 @@ struct SettingsView: View {
                 // Daten
                 Section("Daten") {
                     Button {
-                        showExportSheet = true
+                        exportDocument = GymDataDocument(backup: store.createBackup())
+                        showExporter = true
                     } label: {
                         HStack {
                             Image(systemName: "square.and.arrow.up")
-                            Text("Daten exportieren")
+                            Text("Datei exportieren (.json)")
+                        }
+                    }
+                    
+                    Button {
+                        showImporter = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "square.and.arrow.down")
+                            Text("Datei importieren (.json)")
+                        }
+                    }
+                    
+                    Button {
+                        showExportSheet = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "doc.text")
+                            Text("Text-Export (Legacy)")
                         }
                     }
                     
@@ -1929,25 +2005,41 @@ struct SettingsView: View {
             .alert("Alle Daten löschen?", isPresented: $showResetAlert) {
                 Button("Abbrechen", role: .cancel) {}
                 Button("Löschen", role: .destructive) {
-                    resetAllData()
+                    store.clearAll()
                 }
             } message: {
                 Text("Diese Aktion kann nicht rückgängig gemacht werden. Alle Übungen, Sessions und Pläne werden gelöscht.")
+            }
+            .fileExporter(
+                isPresented: $showExporter,
+                document: exportDocument,
+                contentType: .json,
+                defaultFilename: "GymTrackerBackup.json"
+            ) { result in }
+            .fileImporter(
+                isPresented: $showImporter,
+                allowedContentTypes: [.json],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    guard let url = urls.first else { return }
+                    if url.startAccessingSecurityScopedResource() {
+                        defer { url.stopAccessingSecurityScopedResource() }
+                        if let data = try? Data(contentsOf: url),
+                           let backup = try? JSONDecoder().decode(GymDataBackup.self, from: data) {
+                            store.restore(from: backup)
+                        }
+                    }
+                case .failure(let error):
+                    print("Import failed: \(error.localizedDescription)")
+                }
             }
             .sheet(isPresented: $showExportSheet) {
                 ExportDataView()
                     .environmentObject(store)
             }
         }
-    }
-    
-    private func resetAllData() {
-        store.exercises.removeAll()
-        store.sessions.removeAll()
-        store.plans.removeAll()
-        UserDefaults.standard.removeObject(forKey: "gym_data")
-        UserDefaults.standard.removeObject(forKey: "gym_sessions")
-        UserDefaults.standard.removeObject(forKey: "gym_plans")
     }
 }
 

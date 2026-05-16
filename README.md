@@ -7,6 +7,7 @@ Eine hochmoderne, native iOS-App zur Protokollierung von Krafttraining und zur M
 *   **Gamification System**: Steige im Level auf! Sammle XP basierend auf deinem bewegten Gesamtvolumen und verfolge deine Trainings-Streaks.
 *   **Intelligente Progression**: Erhalte automatisierte Empfehlungen für dein nächstes Training (Gewicht & Reps), basierend auf deiner Performance in der letzten Session.
 *   **PR-Tracking (Recent Wins)**: Die App erkennt automatisch persönliche Rekorde und hebt deine Erfolge im Dashboard hervor.
+*   **Milestone Progress Widget**: Ein hochmodernes Widget, das deinen aktuellen PR mit einem Ziel-Meilenstein vergleicht – inklusive animierter Glow-Fortschrittsleiste.
 *   **Swift 6 Concurrency**: Vollständig modernisiertes Backend, das die neuesten Swift-Nebenläufigkeitsregeln nutzt, um maximale Performance und Stabilität zu garantieren.
 *   **JSON Backup & Restore**: Volle Datensouveränität durch einfachen Export und Import deines gesamten Trainingsverlaufs als JSON-Datei.
 
@@ -39,7 +40,7 @@ Eine hochmoderne, native iOS-App zur Protokollierung von Krafttraining und zur M
 | `ContentView.swift` | Der Kern der App: Enthält UI-Komponenten, Models, Stores und die gesamte Geschäftslogik. |
 | **Models** | `Exercise`, `WorkoutLog`, `TrainingSession`, `TrainingPlan`, `GymDataBackup`. |
 | **Stores** | `GymStore` (Zentrale Logik, CRUD, Progression) & `SettingsStore` (Präferenzen). |
-| **Views** | Dashboard, Übungsliste, Trainings-Modus, Detailansichten und Einstellungen. |
+| **Views** | Dashboard (inkl. Milestone Widget), Übungsliste, Trainings-Modus, Detailansichten und Einstellungen. |
 
 ## Kernmetriken & Logik
 

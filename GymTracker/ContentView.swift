@@ -22,18 +22,18 @@ struct Exercise: Identifiable, Codable, Hashable, Sendable {
     var name: String
     var logs: [WorkoutLog]
     
-    // Progression Settings
     var targetRepsMin: Int
     var targetRepsMax: Int
     var targetSets: Int
     var autoProgression: Bool
+    var milestoneTarget: Double
     
     // Backward Compatibility
     enum CodingKeys: String, CodingKey {
-        case id, name, logs, targetRepsMin, targetRepsMax, targetSets, autoProgression
+        case id, name, logs, targetRepsMin, targetRepsMax, targetSets, autoProgression, milestoneTarget
     }
     
-    init(id: UUID = UUID(), name: String, logs: [WorkoutLog] = [], targetRepsMin: Int = 8, targetRepsMax: Int = 12, targetSets: Int = 3, autoProgression: Bool = true) {
+    init(id: UUID = UUID(), name: String, logs: [WorkoutLog] = [], targetRepsMin: Int = 8, targetRepsMax: Int = 12, targetSets: Int = 3, autoProgression: Bool = true, milestoneTarget: Double = 100.0) {
         self.id = id
         self.name = name
         self.logs = logs
@@ -41,6 +41,7 @@ struct Exercise: Identifiable, Codable, Hashable, Sendable {
         self.targetRepsMax = targetRepsMax
         self.targetSets = targetSets
         self.autoProgression = autoProgression
+        self.milestoneTarget = milestoneTarget
     }
     
     nonisolated init(from decoder: Decoder) throws {
@@ -52,6 +53,11 @@ struct Exercise: Identifiable, Codable, Hashable, Sendable {
         targetRepsMax = try container.decodeIfPresent(Int.self, forKey: .targetRepsMax) ?? 12
         targetSets = try container.decodeIfPresent(Int.self, forKey: .targetSets) ?? 3
         autoProgression = try container.decodeIfPresent(Bool.self, forKey: .autoProgression) ?? true
+        milestoneTarget = try container.decodeIfPresent(Double.self, forKey: .milestoneTarget) ?? 100.0
+    }
+    
+    var currentPR: Double {
+        logs.map { $0.weight }.max() ?? 0.0
     }
     
     var estimatedOneRepMax: Double? {
@@ -436,6 +442,12 @@ final class GymStore: ObservableObject {
         save()
     }
     
+    func updateMilestoneTarget(for exerciseId: UUID, target: Double) {
+        guard let index = exercises.firstIndex(where: { $0.id == exerciseId }) else { return }
+        exercises[index].milestoneTarget = target
+        save()
+    }
+    
     // MARK: - Persistence
     
     private func save() {
@@ -702,6 +714,10 @@ struct DashboardView: View {
                         }
                         .padding(.horizontal)
                         
+                        // MARK: - MILESTONE WIDGET
+                        MilestoneWidget()
+                            .padding(.horizontal)
+                        
                         // MARK: - QUICK STATS GRID
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 15) {
                             StatMiniCard(
@@ -847,6 +863,128 @@ struct DashboardView: View {
             }
             return ActivityData(date: date, count: dayCount, volume: dayVolume)
         }
+    }
+}
+
+// MARK: - MILESTONE WIDGET
+
+struct MilestoneWidget: View {
+    @EnvironmentObject var store: GymStore
+    @State private var selectedExerciseId: UUID?
+    @State private var isAnimating = false
+    
+    private var selectedExercise: Exercise? {
+        if let id = selectedExerciseId {
+            return store.exercises.first { $0.id == id }
+        }
+        return store.exercises.first
+    }
+    
+    private var progress: Double {
+        guard let ex = selectedExercise, ex.milestoneTarget > 0 else { return 0 }
+        return min(ex.currentPR / ex.milestoneTarget, 1.0)
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack {
+                Text("Weg zum Meilenstein")
+                    .font(.system(size: 12, weight: .black))
+                    .foregroundColor(.secondary)
+                    .kerning(1)
+                
+                Spacer()
+                
+                Menu {
+                    ForEach(store.exercises) { ex in
+                        Button(ex.name) {
+                            selectedExerciseId = ex.id
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(selectedExercise?.name ?? "Übung wählen")
+                        Image(systemName: "chevron.down")
+                    }
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.blue)
+                }
+            }
+            
+            if let ex = selectedExercise {
+                HStack(alignment: .bottom, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(String(format: "%.1f", ex.currentPR)) kg")
+                            .font(.system(size: 28, weight: .black, design: .rounded))
+                        Text("Aktueller PR")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Text("/")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.secondary.opacity(0.3))
+                        .padding(.bottom, 6)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(String(format: "%.1f", ex.milestoneTarget)) kg")
+                            .font(.system(size: 20, weight: .bold, design: .rounded))
+                            .foregroundColor(.secondary)
+                        Text("Ziel")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.bottom, 4)
+                    
+                    Spacer()
+                    
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(Int(progress * 100))%")
+                            .font(.system(size: 28, weight: .black, design: .rounded))
+                            .foregroundColor(.blue)
+                        Text("Fortschritt")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(Color.gray.opacity(0.1))
+                        
+                        Capsule()
+                            .fill(LinearGradient(colors: [.green, .cyan], startPoint: .leading, endPoint: .trailing))
+                            .frame(width: isAnimating ? geo.size.width * progress : 0)
+                            .shadow(color: Color.green.opacity(0.3), radius: 8, x: 0, y: 0)
+                    }
+                }
+                .frame(height: 10)
+                .onAppear {
+                    isAnimating = false
+                    withAnimation(.easeOut(duration: 1.2)) {
+                        isAnimating = true
+                    }
+                }
+                .onChange(of: selectedExerciseId) { _ in
+                    isAnimating = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation(.easeOut(duration: 1.2)) {
+                            isAnimating = true
+                        }
+                    }
+                }
+            } else {
+                Text("Lege eine Übung an, um Meilensteine zu verfolgen.")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 10)
+            }
+        }
+        .padding(20)
+        .background(Color(UIColor.secondarySystemBackground).opacity(0.8))
+        .cornerRadius(24)
     }
 }
 
@@ -1577,6 +1715,11 @@ struct AddLogView: View {
         self.exerciseId = exerciseId
     }
     
+    var isCloseToMilestone: Bool {
+        guard let ex = exercise, let w = Double(weight) else { return false }
+        return w >= (ex.milestoneTarget * 0.95)
+    }
+    
     var body: some View {
         NavigationStack {
             Form {
@@ -1598,6 +1741,14 @@ struct AddLogView: View {
                     
                     TextField("Wiederholungen", text: $reps)
                         .keyboardType(.numberPad)
+                }
+                
+                if let ex = exercise {
+                    Section("Motivation") {
+                        Text("Dein Ziel für heute: Komm näher an die \(String(format: "%.1f", ex.milestoneTarget)) kg heran! (Aktueller PR: \(String(format: "%.1f", ex.currentPR)) kg)")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundColor(.blue)
+                    }
                 }
                 
                 if let w = Double(weight), let r = Int(reps) {
@@ -1629,7 +1780,7 @@ struct AddLogView: View {
             .navigationTitle("Training eintragen")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Speichern") {
+                    Button {
                         if let w = Double(weight),
                            let r = Int(reps) {
                             if let ex = exercise {
@@ -1637,6 +1788,15 @@ struct AddLogView: View {
                             }
                             dismiss()
                         }
+                    } label: {
+                        Text("Speichern")
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(isCloseToMilestone ? LinearGradient(colors: [.green, .cyan], startPoint: .leading, endPoint: .trailing) : LinearGradient(colors: [.blue, .blue], startPoint: .leading, endPoint: .trailing))
+                            .cornerRadius(10)
+                            .shadow(color: (isCloseToMilestone ? Color.green : Color.blue).opacity(0.3), radius: 5, x: 0, y: 2)
                     }
                     .disabled(weight.isEmpty || reps.isEmpty)
                 }

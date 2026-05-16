@@ -17,33 +17,10 @@ extension Date {
 
 // MARK: - MODELS
 
-enum MuscleGroup: String, Codable, CaseIterable, Sendable {
-    case chest = "Brust"
-    case back = "Rücken"
-    case legs = "Beine"
-    case shoulders = "Schultern"
-    case biceps = "Bizeps"
-    case triceps = "Trizeps"
-    case core = "Kern/Bauch"
-    
-    var icon: String {
-        switch self {
-        case .chest: return "figure.strengthtraining.traditional"
-        case .back: return "figure.rower"
-        case .legs: return "figure.run"
-        case .shoulders: return "figure.arms.open"
-        case .biceps: return "figure.strengthtraining.traditional"
-        case .triceps: return "figure.strengthtraining.traditional"
-        case .core: return "figure.core.training"
-        }
-    }
-}
-
 struct Exercise: Identifiable, Codable, Hashable, Sendable {
     let id: UUID
     var name: String
     var logs: [WorkoutLog]
-    var muscleGroups: [MuscleGroup]
     
     // Progression Settings
     var targetRepsMin: Int
@@ -51,28 +28,26 @@ struct Exercise: Identifiable, Codable, Hashable, Sendable {
     var targetSets: Int
     var autoProgression: Bool
     
-    init(id: UUID = UUID(), name: String, logs: [WorkoutLog] = [], muscleGroups: [MuscleGroup] = [], targetRepsMin: Int = 8, targetRepsMax: Int = 12, targetSets: Int = 3, autoProgression: Bool = true) {
+    // Backward Compatibility
+    enum CodingKeys: String, CodingKey {
+        case id, name, logs, targetRepsMin, targetRepsMax, targetSets, autoProgression
+    }
+    
+    init(id: UUID = UUID(), name: String, logs: [WorkoutLog] = [], targetRepsMin: Int = 8, targetRepsMax: Int = 12, targetSets: Int = 3, autoProgression: Bool = true) {
         self.id = id
         self.name = name
         self.logs = logs
-        self.muscleGroups = muscleGroups
         self.targetRepsMin = targetRepsMin
         self.targetRepsMax = targetRepsMax
         self.targetSets = targetSets
         self.autoProgression = autoProgression
     }
     
-    // Backward Compatibility
-    enum CodingKeys: String, CodingKey {
-        case id, name, logs, muscleGroups, targetRepsMin, targetRepsMax, targetSets, autoProgression
-    }
-    
-    init(from decoder: Decoder) throws {
+    nonisolated init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
         logs = try container.decode([WorkoutLog].self, forKey: .logs)
-        muscleGroups = try container.decodeIfPresent([MuscleGroup].self, forKey: .muscleGroups) ?? []
         targetRepsMin = try container.decodeIfPresent(Int.self, forKey: .targetRepsMin) ?? 8
         targetRepsMax = try container.decodeIfPresent(Int.self, forKey: .targetRepsMax) ?? 12
         targetSets = try container.decodeIfPresent(Int.self, forKey: .targetSets) ?? 3
@@ -115,6 +90,29 @@ struct WorkoutLog: Identifiable, Codable, Hashable, Sendable {
     let sessionId: UUID?
     var isPR: Bool = false
     
+    enum CodingKeys: String, CodingKey {
+        case id, date, weight, reps, sessionId, isPR
+    }
+    
+    nonisolated init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        date = try container.decode(Date.self, forKey: .date)
+        weight = try container.decode(Double.self, forKey: .weight)
+        reps = try container.decode(Int.self, forKey: .reps)
+        sessionId = try container.decodeIfPresent(UUID.self, forKey: .sessionId)
+        isPR = try container.decodeIfPresent(Bool.self, forKey: .isPR) ?? false
+    }
+    
+    init(id: UUID = UUID(), date: Date = Date(), weight: Double, reps: Int, sessionId: UUID? = nil, isPR: Bool = false) {
+        self.id = id
+        self.date = date
+        self.weight = weight
+        self.reps = reps
+        self.sessionId = sessionId
+        self.isPR = isPR
+    }
+    
     var volume: Double {
         weight * Double(reps)
     }
@@ -132,6 +130,27 @@ struct TrainingSession: Identifiable, Codable, Hashable, Sendable {
     var exerciseIds: [UUID]
     var notes: String
     
+    enum CodingKeys: String, CodingKey {
+        case id, name, date, exerciseIds, notes
+    }
+    
+    nonisolated init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        date = try container.decode(Date.self, forKey: .date)
+        exerciseIds = try container.decodeIfPresent([UUID].self, forKey: .exerciseIds) ?? []
+        notes = try container.decodeIfPresent(String.self, forKey: .notes) ?? ""
+    }
+    
+    init(id: UUID = UUID(), name: String, date: Date = Date(), exerciseIds: [UUID] = [], notes: String = "") {
+        self.id = id
+        self.name = name
+        self.date = date
+        self.exerciseIds = exerciseIds
+        self.notes = notes
+    }
+    
     func totalVolume(from store: GymStore) -> Double {
         var total = 0.0
         for exercise in store.exercises where exerciseIds.contains(exercise.id) {
@@ -148,6 +167,25 @@ struct TrainingPlan: Identifiable, Codable, Hashable, Sendable {
     var name: String
     var exerciseIds: [UUID]
     var notes: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, exerciseIds, notes
+    }
+    
+    nonisolated init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        exerciseIds = try container.decodeIfPresent([UUID].self, forKey: .exerciseIds) ?? []
+        notes = try container.decodeIfPresent(String.self, forKey: .notes) ?? ""
+    }
+    
+    init(id: UUID = UUID(), name: String, exerciseIds: [UUID] = [], notes: String = "") {
+        self.id = id
+        self.name = name
+        self.exerciseIds = exerciseIds
+        self.notes = notes
+    }
 }
 
 // MARK: - BACKUP MODELS
@@ -157,6 +195,25 @@ struct GymDataBackup: Codable, Sendable {
     var sessions: [TrainingSession]
     var plans: [TrainingPlan]
     var version: String = "1.0"
+    
+    enum CodingKeys: String, CodingKey {
+        case exercises, sessions, plans, version
+    }
+    
+    nonisolated init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        exercises = try container.decodeIfPresent([Exercise].self, forKey: .exercises) ?? []
+        sessions = try container.decodeIfPresent([TrainingSession].self, forKey: .sessions) ?? []
+        plans = try container.decodeIfPresent([TrainingPlan].self, forKey: .plans) ?? []
+        version = try container.decodeIfPresent(String.self, forKey: .version) ?? "1.0"
+    }
+    
+    init(exercises: [Exercise], sessions: [TrainingSession], plans: [TrainingPlan], version: String = "1.0") {
+        self.exercises = exercises
+        self.sessions = sessions
+        self.plans = plans
+        self.version = version
+    }
 }
 
 struct GymDataDocument: FileDocument {
@@ -167,17 +224,16 @@ struct GymDataDocument: FileDocument {
         self.backup = backup
     }
 
-    init(configuration: ReadConfiguration) throws {
-        guard let data = configuration.file.regularFileContents else {
+    nonisolated init(configuration: ReadConfiguration) throws {
+        if let data = configuration.file.regularFileContents {
+            self.backup = try JSONDecoder().decode(GymDataBackup.self, from: data)
+        } else {
             throw CocoaError(.fileReadCorruptFile)
         }
-        self.backup = try JSONDecoder().decode(GymDataBackup.self, from: data)
     }
 
-    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .prettyPrinted
-        let data = try encoder.encode(backup)
+    nonisolated func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        let data = try JSONEncoder().encode(backup)
         return FileWrapper(regularFileWithContents: data)
     }
 }
@@ -268,25 +324,23 @@ final class GymStore: ObservableObject {
         load()
     }
     
-    func addExercise(name: String, muscleGroups: [MuscleGroup] = [], targetRepsMin: Int = 8, targetRepsMax: Int = 12, targetSets: Int = 3) {
+    func addExercise(name: String, targetRepsMin: Int = 8, targetRepsMax: Int = 12, targetSets: Int = 3, autoProgression: Bool = true) {
         let exercise = Exercise(
             id: UUID(),
             name: name,
             logs: [],
-            muscleGroups: muscleGroups,
             targetRepsMin: targetRepsMin,
             targetRepsMax: targetRepsMax,
             targetSets: targetSets,
-            autoProgression: true
+            autoProgression: autoProgression
         )
         exercises.append(exercise)
         save()
     }
     
-    func updateExercise(_ exercise: Exercise, name: String, muscleGroups: [MuscleGroup], targetRepsMin: Int, targetRepsMax: Int, targetSets: Int, autoProgression: Bool) {
+    func updateExercise(_ exercise: Exercise, name: String, targetRepsMin: Int, targetRepsMax: Int, targetSets: Int, autoProgression: Bool) {
         guard let index = exercises.firstIndex(where: { $0.id == exercise.id }) else { return }
         exercises[index].name = name
-        exercises[index].muscleGroups = muscleGroups
         exercises[index].targetRepsMin = targetRepsMin
         exercises[index].targetRepsMax = targetRepsMax
         exercises[index].targetSets = targetSets
@@ -336,16 +390,9 @@ final class GymStore: ObservableObject {
         exercises[exerciseIndex].logs.removeAll { $0.id == logId }
         save()
     }
-    
-    func addSession(name: String, exerciseIds: [UUID], notes: String = "") {
-        let session = TrainingSession(
-            id: UUID(),
-            name: name,
-            date: Date(),
-            exerciseIds: exerciseIds,
-            notes: notes
-        )
-        sessions.append(session)
+    func addSession(name: String, date: Date = Date(), exerciseIds: [UUID] = [], notes: String = "") {
+        let newSession = TrainingSession(id: UUID(), name: name, date: date, exerciseIds: exerciseIds, notes: notes)
+        sessions.append(newSession)
         save()
     }
     
@@ -419,18 +466,6 @@ final class GymStore: ObservableObject {
     }
     
     // MARK: - Gamification & Progression Helpers
-    
-    func weeklySets(for muscleGroup: MuscleGroup) -> Int {
-        let calendar = Calendar.current
-        let now = Date()
-        guard let startOfWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)) else { return 0 }
-        
-        var count = 0
-        for exercise in exercises where exercise.muscleGroups.contains(muscleGroup) {
-            count += exercise.logs.filter { $0.date >= startOfWeek }.count
-        }
-        return count
-    }
     
     func checkPR(for exercise: Exercise, weight: Double, reps: Int) -> Bool {
         guard !exercise.logs.isEmpty else { return true }
@@ -514,15 +549,17 @@ struct ContentView: View {
     
     @StateObject private var store = GymStore()
     @StateObject private var settings = SettingsStore()
+    @State private var selectedTab = 0
     
     var body: some View {
-        TabView {
-            DashboardView()
+        TabView(selection: $selectedTab) {
+            DashboardView(selectedTab: $selectedTab)
                 .environmentObject(store)
                 .environmentObject(settings)
                 .tabItem {
                     Label("Übersicht", systemImage: "house.fill")
                 }
+                .tag(0)
 
             ExercisesListView()
                 .environmentObject(store)
@@ -530,6 +567,7 @@ struct ContentView: View {
                 .tabItem {
                     Label("Übungen", systemImage: "dumbbell")
                 }
+                .tag(1)
             
             TrainingView()
                 .environmentObject(store)
@@ -537,6 +575,7 @@ struct ContentView: View {
                 .tabItem {
                     Label("Training", systemImage: "figure.run.circle")
                 }
+                .tag(2)
             
             SettingsView()
                 .environmentObject(store)
@@ -544,6 +583,7 @@ struct ContentView: View {
                 .tabItem {
                     Label("Einstellungen", systemImage: "gearshape")
                 }
+                .tag(3)
         }
         .preferredColorScheme(settings.appearanceMode)
     }
@@ -553,171 +593,388 @@ struct ContentView: View {
 
 struct DashboardView: View {
     @EnvironmentObject var store: GymStore
+    @EnvironmentObject var settings: SettingsStore
+    @Binding var selectedTab: Int
+    @State private var showingAddExercise = false
+    @State private var showingQuickStart = false
+    
+    // Level-Berechnung
+    private var totalLifetimeVolume: Double {
+        store.exercises.flatMap { $0.logs }.reduce(0) { $0 + $1.volume }
+    }
+    
+    private var userLevel: Int {
+        Int(totalLifetimeVolume / 5000) + 1
+    }
+    
+    private var xpToNextLevel: Double {
+        totalLifetimeVolume.truncatingRemainder(dividingBy: 5000) / 5000
+    }
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 25) {
-                    // Header mit Streak
+            ZStack {
+                // Dunkler, futuristischer Hintergrund
+                Color(UIColor.systemBackground).ignoresSafeArea()
+                
+                // Subtile Hintergrund-Glows
+                VStack {
                     HStack {
-                        VStack(alignment: .leading) {
-                            Text(Date().formattedString())
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Text("Dein Fortschritt")
-                                .font(.title.bold())
-                        }
+                        Circle()
+                            .fill(Color.blue.opacity(0.15))
+                            .frame(width: 300, height: 300)
+                            .blur(radius: 60)
+                            .offset(x: -100, y: -100)
                         Spacer()
-                        StreakBadge(count: store.getStreak())
                     }
-                    .padding(.horizontal)
-                    
-                    // Aktivitäts-Chart (Apple Fitness Style)
-                    VStack(alignment: .leading, spacing: 15) {
-                        Text("Aktivität (letzte 7 Tage)")
-                            .font(.headline)
-                        
-                        Chart {
-                            ForEach(lastSevenDays(), id: \.date) { data in
-                                BarMark(
-                                    x: .value("Tag", data.date, unit: .day),
-                                    y: .value("Sätze", data.count)
-                                )
-                                .foregroundStyle(LinearGradient(colors: [.blue, .cyan], startPoint: .bottom, endPoint: .top))
-                                .cornerRadius(4)
-                            }
-                        }
-                        .frame(height: 120)
-                        .chartXAxis {
-                            AxisMarks(values: .stride(by: .day)) { _ in
-                                AxisValueLabel(format: .dateTime.weekday(.abbreviated))
-                            }
-                        }
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        Circle()
+                            .fill(Color.purple.opacity(0.15))
+                            .frame(width: 300, height: 300)
+                            .blur(radius: 60)
+                            .offset(x: 100, y: 100)
                     }
-                    .padding()
-                    .background(Color.gray.opacity(0.05))
-                    .cornerRadius(16)
-                    .padding(.horizontal)
-                    
-                    // Muskelgruppen-Ringe
-                    VStack(alignment: .leading, spacing: 15) {
-                        Text("Wöchentliches Volumen (Sätze)")
-                            .font(.headline)
+                }
+                .ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 30) {
                         
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 20) {
-                                ForEach(MuscleGroup.allCases, id: \.self) { group in
-                                    MuscleGroupRing(muscleGroup: group, setsDone: store.weeklySets(for: group))
+                        // MARK: - PREMIUM HEADER & LEVEL
+                        VStack(alignment: .leading, spacing: 15) {
+                            HStack(alignment: .center) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("GymTracker")
+                                        .font(.system(size: 12, weight: .black))
+                                        .foregroundColor(.secondary)
+                                        .kerning(2)
+                                    Text(Date().formatted(date: .long, time: .omitted))
+                                        .font(.system(size: 34, weight: .heavy, design: .rounded))
                                 }
+                                Spacer()
+                                
+                                // Streak Badge
+                                VStack(spacing: 4) {
+                                    Image(systemName: "flame.fill")
+                                        .font(.title2)
+                                        .foregroundStyle(LinearGradient(colors: [.orange, .red], startPoint: .top, endPoint: .bottom))
+                                    Text("\(store.getStreak())")
+                                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                                }
+                                .padding(12)
+                                .background(Color.orange.opacity(0.1))
+                                .cornerRadius(16)
                             }
-                            .padding(.horizontal)
-                            .padding(.vertical, 10)
-                        }
-                    }
-                    
-                    // Letzte Erfolge (PRs)
-                    VStack(alignment: .leading, spacing: 15) {
-                        Text("Deine Meilensteine")
-                            .font(.headline)
-                        
-                        let prLogs = store.exercises.flatMap { ex in 
-                            ex.logs.filter { $0.isPR }.map { (ex.name, $0) } 
-                        }.sorted(by: { $0.1.date > $1.1.date }).prefix(5)
-                        
-                        if prLogs.isEmpty {
-                            Text("Noch keine PRs aufgezeichnet. Gib Gas!")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                                .padding()
-                                .frame(maxWidth: .infinity)
-                                .background(Color.gray.opacity(0.1))
-                                .cornerRadius(12)
-                        } else {
-                            ForEach(prLogs, id: \.1.id) { pr in
+                            
+                            // Level Progress Card
+                            VStack(alignment: .leading, spacing: 12) {
                                 HStack {
-                                    Text("👑")
-                                    VStack(alignment: .leading) {
-                                        Text(pr.0)
-                                            .font(.subheadline)
-                                            .fontWeight(.bold)
-                                        Text("\(String(format: "%.1f", pr.1.weight)) kg × \(pr.1.reps)")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
+                                    Text("LEVEL \(userLevel)")
+                                        .font(.system(size: 14, weight: .black))
+                                        .foregroundColor(.blue)
                                     Spacer()
-                                    Text(pr.1.date.formattedString())
-                                        .font(.caption2)
+                                    Text("\(Int(xpToNextLevel * 100))%")
+                                        .font(.system(size: 14, weight: .bold, design: .rounded))
                                         .foregroundColor(.secondary)
                                 }
-                                .padding()
-                                .background(Color.blue.opacity(0.05))
-                                .cornerRadius(12)
+                                
+                                GeometryReader { geo in
+                                    ZStack(alignment: .leading) {
+                                        Capsule()
+                                            .fill(Color.gray.opacity(0.1))
+                                        Capsule()
+                                            .fill(LinearGradient(colors: [.blue, .cyan], startPoint: .leading, endPoint: .trailing))
+                                            .frame(width: geo.size.width * xpToNextLevel)
+                                    }
+                                }
+                                .frame(height: 10)
+                                
+                                Text("\(Int(5000 - (totalLifetimeVolume.truncatingRemainder(dividingBy: 5000)))) kg bis Level \(userLevel + 1)")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(20)
+                            .background(Color(UIColor.secondarySystemBackground).opacity(0.8))
+                            .cornerRadius(24)
+                            .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+                        }
+                        .padding(.horizontal)
+                        
+                        // MARK: - QUICK STATS GRID
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 15) {
+                            StatMiniCard(
+                                title: "Workouts", 
+                                value: "\(store.sessions.count)", 
+                                icon: "bolt.fill", 
+                                color: .orange
+                            )
+                            StatMiniCard(
+                                title: "Volumen", 
+                                value: String(format: "%.0f t", totalLifetimeVolume / 1000), 
+                                icon: "dumbbell.fill", 
+                                color: .blue
+                            )
+                        }
+                        .padding(.horizontal)
+                        
+                        // MARK: - ACTIVITY GRAPH
+                        VStack(alignment: .leading, spacing: 15) {
+                            Text("Deine Performance")
+                                .font(.title3.bold())
+                                .padding(.horizontal)
+                            
+                            VStack(spacing: 20) {
+                                Chart {
+                                    ForEach(lastSevenDaysData, id: \.date) { data in
+                                        BarMark(
+                                            x: .value("Tag", data.date, unit: .day),
+                                            y: .value("Sätze", data.count)
+                                        )
+                                        .foregroundStyle(LinearGradient(colors: [.blue.opacity(0.8), .blue], startPoint: .bottom, endPoint: .top))
+                                        .cornerRadius(4)
+                                    }
+                                }
+                                .frame(height: 140)
+                                .chartXAxis {
+                                    AxisMarks(values: .stride(by: .day)) { _ in
+                                        AxisValueLabel(format: .dateTime.weekday(.narrow))
+                                            .font(.system(size: 10, weight: .bold))
+                                    }
+                                }
+                                .chartYAxis(.hidden)
+                            }
+                            .padding(20)
+                            .background(Color(UIColor.secondarySystemBackground).opacity(0.5))
+                            .cornerRadius(24)
+                            .padding(.horizontal)
+                        }
+                        
+                        // MARK: - RECENT PRS (WINS)
+                        VStack(alignment: .leading, spacing: 15) {
+                            HStack {
+                                Text("Recent Wins")
+                                    .font(.title3.bold())
+                                Spacer()
+                                Image(systemName: "trophy.fill")
+                                    .foregroundColor(.yellow)
+                            }
+                            .padding(.horizontal)
+                            
+                            if prLogs.isEmpty {
+                                EmptyStateView(message: "Keine neuen Rekorde. Gib Gas!")
+                                    .padding(.horizontal)
+                            } else {
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 15) {
+                                        ForEach(prLogs) { item in
+                                            NavigationLink {
+                                                ExerciseDetailView(exercise: item.exercise)
+                                                    .environmentObject(store)
+                                            } label: {
+                                                AchievementCard(exerciseName: item.exerciseName, log: item.log)
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
+                                    .padding(.horizontal)
+                                }
                             }
                         }
+                        
+                        // MARK: - NEXT STEP ACTION
+                        Button {
+                            selectedTab = 2 // Go to Training
+                        } label: {
+                            HStack {
+                                Image(systemName: "play.fill")
+                                Text("NÄCHSTES TRAINING")
+                                    .kerning(1)
+                            }
+                            .font(.system(size: 16, weight: .black))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 18)
+                            .background(LinearGradient(colors: [.blue, .purple], startPoint: .leading, endPoint: .trailing))
+                            .cornerRadius(20)
+                            .shadow(color: Color.blue.opacity(0.3), radius: 15, x: 0, y: 8)
+                        }
+                        .padding(.horizontal)
+                        .padding(.bottom, 40)
                     }
-                    .padding(.horizontal)
+                    .padding(.vertical)
                 }
-                .padding(.vertical)
             }
-            .navigationTitle("Dashboard")
+            .navigationTitle("")
+            .navigationBarHidden(true)
         }
+    }
+    
+    // Hilfskonstrukte
+    struct PRItem: Identifiable {
+        let id: UUID
+        let exerciseName: String
+        let log: WorkoutLog
+        let exercise: Exercise
+    }
+    
+    private var prLogs: [PRItem] {
+        let items = store.exercises.flatMap { ex in
+            ex.logs.filter { $0.isPR }.map { 
+                PRItem(id: $0.id, exerciseName: ex.name, log: $0, exercise: ex)
+            }
+        }
+        return Array(items.sorted(by: { $0.log.date > $1.log.date }).prefix(5))
     }
     
     struct ActivityData {
         let date: Date
         let count: Int
+        let volume: Double
     }
     
-    private func lastSevenDays() -> [ActivityData] {
+    private var lastSevenDaysData: [ActivityData] {
         let calendar = Calendar.current
         return (0...6).reversed().map { dayOffset in
             let date = calendar.date(byAdding: .day, value: -dayOffset, to: calendar.startOfDay(for: Date()))!
-            let count = store.exercises.reduce(0) { total, ex in
-                total + ex.logs.filter { calendar.isDate($0.date, inSameDayAs: date) }.count
+            var dayCount = 0
+            var dayVolume = 0.0
+            for ex in store.exercises {
+                let dayLogs = ex.logs.filter { calendar.isDate($0.date, inSameDayAs: date) }
+                dayCount += dayLogs.count
+                dayVolume += dayLogs.reduce(0) { $0 + $1.volume }
             }
-            return ActivityData(date: date, count: count)
+            return ActivityData(date: date, count: dayCount, volume: dayVolume)
         }
     }
 }
 
-struct MuscleGroupRing: View {
-    let muscleGroup: MuscleGroup
-    let setsDone: Int
-    let goal: Int = 15 // Durchschnittliches Ziel: 15 Sätze pro Woche
-    
-    var progress: Double {
-        min(Double(setsDone) / Double(goal), 1.0)
-    }
+// MARK: - NEW GAMIFIED COMPONENTS
+
+struct StatMiniCard: View {
+    let title: String
+    let value: String
+    let icon: String
+    let color: Color
     
     var body: some View {
-        VStack {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundColor(color)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundColor(.secondary)
+                Text(value)
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+            }
+            Spacer()
+        }
+        .padding(16)
+        .background(Color(UIColor.secondarySystemBackground).opacity(0.8))
+        .cornerRadius(20)
+    }
+}
+
+struct AchievementCard: View {
+    let exerciseName: String
+    let log: WorkoutLog
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Image(systemName: "crown.fill")
+                .font(.title3)
+                .foregroundColor(.yellow)
+            
+            Text(exerciseName)
+                .font(.system(size: 14, weight: .bold))
+                .lineLimit(1)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(String(format: "%.1f", log.weight)) kg")
+                    .font(.system(size: 18, weight: .heavy, design: .rounded))
+                    .foregroundColor(.blue)
+                Text("\(log.reps) Reps")
+                    .font(.caption.bold())
+                    .foregroundColor(.secondary)
+            }
+            
+            Text(log.date.formatted(date: .abbreviated, time: .omitted))
+                .font(.system(size: 9, weight: .medium))
+                .foregroundColor(.secondary.opacity(0.6))
+        }
+        .padding(16)
+        .frame(width: 140)
+        .background(Color(UIColor.secondarySystemBackground).opacity(0.8))
+        .cornerRadius(24)
+        .overlay(
+            RoundedRectangle(cornerRadius: 24)
+                .stroke(LinearGradient(colors: [.blue.opacity(0.2), .clear], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - REUSABLE COMPONENTS
+
+struct PRCard: View {
+    let exerciseName: String
+    let log: WorkoutLog
+    
+    var body: some View {
+        HStack(spacing: 15) {
             ZStack {
                 Circle()
-                    .stroke(Color.gray.opacity(0.1), lineWidth: 8)
-                
-                Circle()
-                    .trim(from: 0, to: progress)
-                    .stroke(
-                        LinearGradient(
-                            colors: [Color.blue, Color.purple],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        style: StrokeStyle(lineWidth: 8, lineCap: .round)
-                    )
-                    .rotationEffect(.degrees(-90))
-                    .animation(.spring(), value: progress)
-                
-                Image(systemName: muscleGroup.icon)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(progress >= 1.0 ? .orange : .primary)
+                    .fill(LinearGradient(colors: [.orange, .yellow], startPoint: .top, endPoint: .bottom))
+                    .frame(width: 44, height: 44)
+                Text("👑")
+                    .font(.title3)
             }
-            .frame(width: 70, height: 70)
             
-            Text(muscleGroup.rawValue)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(exerciseName)
+                    .font(.headline)
+                Text("\(String(format: "%.1f", log.weight)) kg × \(log.reps)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("NEUER PR")
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundColor(.orange)
+                Text(log.date.formatted(date: .abbreviated, time: .omitted))
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
         }
+        .padding()
+        .background(Color(UIColor.secondarySystemBackground).opacity(0.5))
+        .cornerRadius(18)
+    }
+}
+
+struct EmptyStateView: View {
+    let message: String
+    var body: some View {
+        HStack {
+            Spacer()
+            VStack(spacing: 10) {
+                Image(systemName: "chart.bar.fill")
+                    .font(.largeTitle)
+                    .foregroundColor(.gray.opacity(0.3))
+                Text(message)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+        }
+        .padding(40)
+        .background(Color(UIColor.secondarySystemBackground).opacity(0.5))
+        .cornerRadius(24)
     }
 }
 
@@ -818,7 +1075,6 @@ struct AddExerciseView: View {
     
     let exerciseToEdit: Exercise?
     @State private var name = ""
-    @State private var selectedMuscleGroups: Set<MuscleGroup> = []
     @State private var targetRepsMin = 8
     @State private var targetRepsMax = 12
     @State private var targetSets = 3
@@ -827,7 +1083,6 @@ struct AddExerciseView: View {
     init(exerciseToEdit: Exercise? = nil) {
         self.exerciseToEdit = exerciseToEdit
         _name = State(initialValue: exerciseToEdit?.name ?? "")
-        _selectedMuscleGroups = State(initialValue: Set(exerciseToEdit?.muscleGroups ?? []))
         _targetRepsMin = State(initialValue: exerciseToEdit?.targetRepsMin ?? 8)
         _targetRepsMax = State(initialValue: exerciseToEdit?.targetRepsMax ?? 12)
         _targetSets = State(initialValue: exerciseToEdit?.targetSets ?? 3)
@@ -839,27 +1094,6 @@ struct AddExerciseView: View {
             Form {
                 Section("Allgemein") {
                     TextField("Übungsname", text: $name)
-                }
-                
-                Section("Muskelgruppen") {
-                    ForEach(MuscleGroup.allCases, id: \.self) { group in
-                        Button {
-                            if selectedMuscleGroups.contains(group) {
-                                selectedMuscleGroups.remove(group)
-                            } else {
-                                selectedMuscleGroups.insert(group)
-                            }
-                        } label: {
-                            HStack {
-                                Label(group.rawValue, systemImage: group.icon)
-                                Spacer()
-                                if selectedMuscleGroups.contains(group) {
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                        .foregroundColor(.primary)
-                    }
                 }
                 
                 Section("Ziel-Fenster (Coaching)") {
@@ -878,7 +1112,6 @@ struct AddExerciseView: View {
                             store.updateExercise(
                                 exercise, 
                                 name: name, 
-                                muscleGroups: Array(selectedMuscleGroups), 
                                 targetRepsMin: targetRepsMin, 
                                 targetRepsMax: targetRepsMax, 
                                 targetSets: targetSets, 
@@ -887,10 +1120,10 @@ struct AddExerciseView: View {
                         } else {
                             store.addExercise(
                                 name: name, 
-                                muscleGroups: Array(selectedMuscleGroups), 
                                 targetRepsMin: targetRepsMin, 
                                 targetRepsMax: targetRepsMax, 
-                                targetSets: targetSets
+                                targetSets: targetSets,
+                                autoProgression: autoProgression
                             )
                         }
                         dismiss()
@@ -1035,7 +1268,7 @@ struct ExerciseDetailView: View {
         }
         .sheet(isPresented: $showAddLog) {
             if let ex = currentExercise {
-                AddLogView(exercise: ex)
+                AddLogView(exerciseId: ex.id)
                     .environmentObject(store)
             }
         }
@@ -1325,16 +1558,23 @@ struct StatCard: View {
 // MARK: - ADD LOG
 
 struct AddLogView: View {
-    
-    let exercise: Exercise
+    let exerciseId: UUID
     @EnvironmentObject var store: GymStore
     @Environment(\.dismiss) private var dismiss
     
     @State private var weight = ""
     @State private var reps = ""
     
+    var exercise: Exercise? {
+        store.exercises.first { $0.id == exerciseId }
+    }
+    
     var lastLog: WorkoutLog? {
-        exercise.logs.sorted { $0.date > $1.date }.first
+        exercise?.logs.sorted { $0.date > $1.date }.first
+    }
+    
+    init(exerciseId: UUID) {
+        self.exerciseId = exerciseId
     }
     
     var body: some View {
@@ -1392,7 +1632,9 @@ struct AddLogView: View {
                     Button("Speichern") {
                         if let w = Double(weight),
                            let r = Int(reps) {
-                            store.addLog(to: exercise, weight: w, reps: r)
+                            if let ex = exercise {
+                                store.addLog(to: ex, weight: w, reps: r)
+                            }
                             dismiss()
                         }
                     }
@@ -1489,7 +1731,7 @@ struct TrainingView: View {
                 if selectedTab == 0 {
                     SessionsListViewContent()
                 } else {
-                    PlansListViewContent()
+                    PlansListViewContent(selectedTab: $selectedTab)
                 }
             }
             .navigationTitle("Training")
@@ -1551,6 +1793,7 @@ struct SessionsListViewContent: View {
 }
 
 struct PlansListViewContent: View {
+    @Binding var selectedTab: Int
     @EnvironmentObject var store: GymStore
     @State private var showStartSession = false
     @State private var currentPlan: TrainingPlan?
@@ -1559,7 +1802,7 @@ struct PlansListViewContent: View {
         List {
             ForEach(store.plans) { plan in
                 NavigationLink {
-                    PlanDetailView(plan: plan)
+                    PlanDetailView(plan: plan, selectedTab: $selectedTab)
                         .environmentObject(store)
                 } label: {
                     HStack {
@@ -1597,7 +1840,7 @@ struct PlansListViewContent: View {
         }
         .sheet(isPresented: $showStartSession) {
             if let p = currentPlan {
-                StartSessionFromPlanView(plan: p)
+                StartSessionFromPlanView(plan: p, selectedTab: $selectedTab)
                     .environmentObject(store)
             }
         }
@@ -1824,7 +2067,7 @@ struct SessionDetailView: View {
             }
         }
         .sheet(item: $selectedExercise) { exercise in
-            AddLogToSessionView(exercise: exercise, sessionId: session.id)
+            AddLogToSessionView(exerciseId: exercise.id, sessionId: session.id)
                 .environmentObject(store)
         }
         .sheet(isPresented: $showSummary) {
@@ -2037,8 +2280,7 @@ struct EditSessionView: View {
 // MARK: - ADD LOG TO SESSION (Mit Fortschritts-Vergleich)
 
 struct AddLogToSessionView: View {
-    
-    let exercise: Exercise
+    let exerciseId: UUID
     let sessionId: UUID
     @EnvironmentObject var store: GymStore
     @Environment(\.dismiss) private var dismiss
@@ -2047,13 +2289,23 @@ struct AddLogToSessionView: View {
     @State private var reps = ""
     @State private var showPRCelebration = false
     
-    var recommendation: (weight: Double, reps: Int)? {
-        store.progressionRecommendation(for: exercise)
+    var exercise: Exercise? {
+        store.exercises.first { $0.id == exerciseId }
     }
     
-    // Die letzten 4 Sätze absteigend sortiert
+    var recommendation: (weight: Double, reps: Int)? {
+        guard let ex = exercise else { return nil }
+        return store.progressionRecommendation(for: ex)
+    }
+    
     var lastFourLogs: [WorkoutLog] {
-        Array(exercise.logs.sorted(by: { $0.date > $1.date }).prefix(4))
+        guard let ex = exercise else { return [] }
+        return Array(ex.logs.sorted(by: { $0.date > $1.date }).prefix(4))
+    }
+    
+    init(exerciseId: UUID, sessionId: UUID) {
+        self.exerciseId = exerciseId
+        self.sessionId = sessionId
     }
     
     var body: some View {
@@ -2092,7 +2344,7 @@ struct AddLogToSessionView: View {
                     Section("Letzte Referenzwerte") {
                         ForEach(Array(lastFourLogs.enumerated()), id: \.element.id) { index, log in
                             // Wir suchen den log davor für den Vergleich
-                            let allSorted = exercise.logs.sorted(by: { $0.date > $1.date })
+                            let allSorted = (exercise?.logs ?? []).sorted(by: { $0.date > $1.date })
                             // Der "vorherige" Log im Sinne der Zeit ist der im Array nach dem aktuellen
                             let logIndex = allSorted.firstIndex(where: { $0.id == log.id }) ?? 0
                             let previousLog = (logIndex + 1 < allSorted.count) ? allSorted[logIndex + 1] : nil
@@ -2125,14 +2377,14 @@ struct AddLogToSessionView: View {
                     }
                 }
             }
-            .navigationTitle(exercise.name)
+            .navigationTitle(exercise?.name ?? "Log hinzufügen")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Speichern") {
                         if let w = Double(weight.replacingOccurrences(of: ",", with: ".")),
                            let r = Int(reps) {
                             
-                            let isPR = store.checkPR(for: exercise, weight: w, reps: r)
+                            let isPR = exercise.map { store.checkPR(for: $0, weight: w, reps: r) } ?? false
                             
                             if isPR {
                                 // Haptisches Feedback
@@ -2144,11 +2396,15 @@ struct AddLogToSessionView: View {
                                 }
                                 
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                    store.addLog(to: exercise, weight: w, reps: r, sessionId: sessionId)
+                                    if let ex = exercise {
+                                        store.addLog(to: ex, weight: w, reps: r, sessionId: sessionId)
+                                    }
                                     dismiss()
                                 }
                             } else {
-                                store.addLog(to: exercise, weight: w, reps: r, sessionId: sessionId)
+                                if let ex = exercise {
+                                    store.addLog(to: ex, weight: w, reps: r, sessionId: sessionId)
+                                }
                                 dismiss()
                             }
                         }
@@ -2288,8 +2544,8 @@ struct AddPlanView: View {
 // MARK: - PLAN DETAIL
 
 struct PlanDetailView: View {
-    
     let plan: TrainingPlan
+    @Binding var selectedTab: Int
     @EnvironmentObject var store: GymStore
     @Environment(\.dismiss) private var dismiss
     
@@ -2378,7 +2634,7 @@ struct PlanDetailView: View {
         }
         .sheet(isPresented: $showStartSession) {
             if let p = currentPlan {
-                StartSessionFromPlanView(plan: p)
+                StartSessionFromPlanView(plan: p, selectedTab: $selectedTab)
                     .environmentObject(store)
             }
         }
@@ -2394,12 +2650,18 @@ struct PlanDetailView: View {
 // MARK: - START SESSION FROM PLAN
 
 struct StartSessionFromPlanView: View {
-    
     let plan: TrainingPlan
+    @Binding var selectedTab: Int
     @EnvironmentObject var store: GymStore
     @Environment(\.dismiss) private var dismiss
     
-    @State private var sessionName = ""
+    @State private var sessionName: String
+    
+    init(plan: TrainingPlan, selectedTab: Binding<Int>) {
+        self.plan = plan
+        self._selectedTab = selectedTab
+        self._sessionName = State(initialValue: plan.name)
+    }
     
     var body: some View {
         NavigationStack {
@@ -2426,6 +2688,7 @@ struct StartSessionFromPlanView: View {
                             exerciseIds: plan.exerciseIds,
                             notes: "Basierend auf Plan: \(plan.name)"
                         )
+                        selectedTab = 0 // Switch to Sessions tab
                         dismiss()
                     }
                     .disabled(sessionName.isEmpty)
@@ -2464,29 +2727,20 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                // Darstellung
-                Section("Darstellung") {
-                    Picker("Design", selection: $settings.appearanceMode) {
-                        Text("Automatisch").tag(nil as ColorScheme?)
-                        Text("Hell").tag(ColorScheme.light as ColorScheme?)
-                        Text("Dunkel").tag(ColorScheme.dark as ColorScheme?)
-                    }
-                    .pickerStyle(.segmented)
-                }
-                
-                // Einheiten
-                Section("Einheiten") {
+                Section("Einheiten & Anzeige") {
                     Picker("Gewichtseinheit", selection: $settings.weightUnit) {
                         ForEach(SettingsStore.WeightUnit.allCases, id: \.self) { unit in
                             Text(unit.name).tag(unit)
                         }
                     }
-                }
-                
-                // Anzeige
-                Section("Anzeige") {
-                    Toggle("Progressive Overload anzeigen", isOn: $settings.showProgressIndicators)
-                        .toggleStyle(SwitchToggleStyle(tint: .blue))
+                    
+                    Toggle("Fortschritts-Indikatoren", isOn: $settings.showProgressIndicators)
+                    
+                    Picker("Erscheinungsbild", selection: $settings.appearanceMode) {
+                        Text("System").tag(nil as ColorScheme?)
+                        Text("Hell").tag(ColorScheme.light as ColorScheme?)
+                        Text("Dunkel").tag(ColorScheme.dark as ColorScheme?)
+                    }
                 }
                 
                 // Training
@@ -2581,14 +2835,6 @@ struct SettingsView: View {
                         Spacer()
                         Text("1.0.0")
                             .foregroundColor(.secondary)
-                    }
-                    
-                    Link(destination: URL(string: "https://github.com")!) {
-                        HStack {
-                            Image(systemName: "heart.fill")
-                                .foregroundColor(.red)
-                            Text("Entwickelt mit Leidenschaft")
-                        }
                     }
                 }
             }

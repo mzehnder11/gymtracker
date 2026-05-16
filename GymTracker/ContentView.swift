@@ -1216,8 +1216,7 @@ struct SessionDetailView: View {
     @EnvironmentObject var store: GymStore
     @Environment(\.dismiss) private var dismiss
     
-    @State private var showAddLog = false
-    @State private var selectedExerciseId: UUID?
+    @State private var selectedExercise: Exercise?
     @State private var showEditSession = false
     
     var currentSession: TrainingSession? {
@@ -1229,10 +1228,6 @@ struct SessionDetailView: View {
         return store.exercises.filter { sess.exerciseIds.contains($0.id) }
     }
     
-    var selectedExercise: Exercise? {
-        guard let id = selectedExerciseId else { return nil }
-        return store.exercises.first { $0.id == id }
-    }
     
     var body: some View {
         ScrollView {
@@ -1270,8 +1265,7 @@ struct SessionDetailView: View {
                 ForEach(sessionExercises) { exercise in
                     VStack(alignment: .leading, spacing: 8) {
                         Button {
-                            selectedExerciseId = exercise.id
-                            showAddLog = true
+                            selectedExercise = exercise
                         } label: {
                             HStack {
                                 VStack(alignment: .leading) {
@@ -1334,11 +1328,9 @@ struct SessionDetailView: View {
                 }
             }
         }
-        .sheet(isPresented: $showAddLog) {
-            if let exercise = selectedExercise {
-                AddLogToSessionView(exercise: exercise, sessionId: session.id)
-                    .environmentObject(store)
-            }
+        .sheet(item: $selectedExercise) { exercise in
+            AddLogToSessionView(exercise: exercise, sessionId: session.id)
+                .environmentObject(store)
         }
         .sheet(isPresented: $showEditSession) {
             if let sess = currentSession {

@@ -490,27 +490,29 @@ final class GymStore: ObservableObject {
     // MARK: - Persistence
     
     private func save() {
+        let sharedDefaults = UserDefaults(suiteName: "group.com.mzehnder.gymtracker")
         if let data = try? JSONEncoder().encode(exercises) {
-            UserDefaults.standard.set(data, forKey: exercisesKey)
+            sharedDefaults?.set(data, forKey: exercisesKey)
         }
         if let data = try? JSONEncoder().encode(sessions) {
-            UserDefaults.standard.set(data, forKey: sessionsKey)
+            sharedDefaults?.set(data, forKey: sessionsKey)
         }
         if let data = try? JSONEncoder().encode(plans) {
-            UserDefaults.standard.set(data, forKey: plansKey)
+            sharedDefaults?.set(data, forKey: plansKey)
         }
     }
     
     private func load() {
-        if let data = UserDefaults.standard.data(forKey: exercisesKey),
+        let sharedDefaults = UserDefaults(suiteName: "group.com.mzehnder.gymtracker")
+        if let data = sharedDefaults?.data(forKey: exercisesKey),
            let decoded = try? JSONDecoder().decode([Exercise].self, from: data) {
             exercises = decoded
         }
-        if let data = UserDefaults.standard.data(forKey: sessionsKey),
+        if let data = sharedDefaults?.data(forKey: sessionsKey),
            let decoded = try? JSONDecoder().decode([TrainingSession].self, from: data) {
             sessions = decoded
         }
-        if let data = UserDefaults.standard.data(forKey: plansKey),
+        if let data = sharedDefaults?.data(forKey: plansKey),
            let decoded = try? JSONDecoder().decode([TrainingPlan].self, from: data) {
             plans = decoded
         }
@@ -588,9 +590,10 @@ final class GymStore: ObservableObject {
         exercises.removeAll()
         sessions.removeAll()
         plans.removeAll()
-        UserDefaults.standard.removeObject(forKey: exercisesKey)
-        UserDefaults.standard.removeObject(forKey: sessionsKey)
-        UserDefaults.standard.removeObject(forKey: plansKey)
+        let sharedDefaults = UserDefaults(suiteName: "group.com.mzehnder.gymtracker")
+        sharedDefaults?.removeObject(forKey: exercisesKey)
+        sharedDefaults?.removeObject(forKey: sessionsKey)
+        sharedDefaults?.removeObject(forKey: plansKey)
     }
 }
 
